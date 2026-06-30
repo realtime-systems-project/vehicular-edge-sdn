@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.DS_Store
+outputs/
+latex/build/
+Latex/build/
+Latex/*.aux
+Latex/*.log
+Latex/main.pdf
