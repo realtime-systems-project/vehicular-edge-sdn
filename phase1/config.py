@@ -1,4 +1,4 @@
-"""Configuration objects for the Phase 1 simulator.
+"""Configuration objects for the vehicular edge simulator.
 
 All values use simple SI-like units:
 - positions and radio ranges are meters
@@ -67,6 +67,38 @@ class SimulationConfig:
     vehicle_min_speed_mps: float = 4.0
     vehicle_max_speed_mps: float = 17.0
     direction_noise_rad: float = 0.35
+
+
+@dataclass(frozen=True)
+class Phase2Config:
+    """Learning and plotting parameters used by the Phase 2 controller.
+
+    These values keep the reinforcement-learning part small enough to present
+    while still matching the project idea: the SDN controller acts on a larger
+    timescale, uses traffic/weather/link-quality information, and is compared
+    against the random-placement baseline.
+    """
+
+    training_episodes: int = 24
+    evaluation_steps: int = 120
+    sdn_update_interval_steps: int = 10
+    provider_move_fraction: float = 0.75
+
+    ppo_learning_rate: float = 0.18
+    ppo_clip_epsilon: float = 0.20
+    entropy_bonus: float = 0.015
+
+    reward_delay_weight: float = 1.0
+    reward_loss_weight: float = 3.4
+    reward_deadline_weight: float = 1.0
+    reward_blind_spot_weight: float = 1.4
+
+    kalman_process_noise: float = 0.004
+    kalman_measurement_noise: float = 0.035
+    kalman_measurement_jitter: float = 0.025
+
+    phase2_loss_weight_s: float = 2.4
+    phase2_deadline_weight_s: float = 7.0
 
 
 SCENARIOS: Dict[int, ScenarioConfig] = {

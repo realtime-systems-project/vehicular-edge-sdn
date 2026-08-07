@@ -1,7 +1,9 @@
 __pycache__/
 *.pyc
 .DS_Store
-outputs/
+outputs/*
+!outputs/phase2/
+!outputs/phase2/**
 latex/build/
 Latex/build/
 Latex/*.aux

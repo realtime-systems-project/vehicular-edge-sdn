@@ -1,10 +1,16 @@
-"""Simulation environment for Phase 1."""
+"""Simulation environment for the vehicular edge project.
+
+The same environment is used by the Phase 1 baseline and the Phase 2 SDN/RL
+method. Phase 2 adds smarter provider placement and Kalman-based link-quality
+estimation, but the physical world, vehicles, tasks, traffic, and weather remain
+shared so the comparison is meaningful.
+"""
 
 from __future__ import annotations
 
 from math import cos, exp, pi, sin
 from random import Random
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .config import ScenarioConfig, SimulationConfig
 from .models import EdgeServer, Position, ProviderVehicle, Task, Vehicle
@@ -22,12 +28,14 @@ WEATHER_LOSS_PENALTY: Dict[str, float] = {
 class SimulationEnvironment:
     """Holds mutable world state and computes traffic, weather, and link loss.
 
-    This class is the "world" of Phase 1. It owns node positions, mobility,
+    This class is the "world" of the simulation. It owns node positions, mobility,
     task generation, weather changes, and the packet-loss map used by the
     offloading algorithm.
     """
 
     def __init__(self, scenario: ScenarioConfig, config: SimulationConfig):
+        """Create the scenario world, including nodes, weather, and demand maps."""
+
         self.scenario = scenario
         self.config = config
         self.rng = Random(config.seed)
@@ -93,6 +101,53 @@ class SimulationEnvironment:
             y=sum(provider.position.y for provider in self.providers) / len(self.providers),
         )
 
+    def set_provider_positions(self, positions: Sequence[Position]) -> None:
+        """Move providers to controller-selected positions inside the map.
+
+        The SDN controller in Phase 2 decides target coordinates. This method is
+        the single environment-side write point, so all controller outputs are
+        clipped to the valid two-dimensional area before they affect the world.
+        """
+
+        for provider, position in zip(self.providers, positions):
+            provider.position.x = self._clamp(
+                position.x,
+                low=0.0,
+                high=self.config.area_width_m,
+            )
+            provider.position.y = self._clamp(
+                position.y,
+                low=0.0,
+                high=self.config.area_height_m,
+            )
+
+    def demand_center(self) -> Position:
+        """Estimate where current vehicle demand is concentrated.
+
+        The center combines nearby vehicles and static traffic hotspots. Phase 2
+        uses this as part of the SDN controller state.
+        """
+
+        weighted_x = 0.0
+        weighted_y = 0.0
+        total_weight = 0.0
+
+        for vehicle in self.vehicles:
+            weight = 0.5 + self.traffic_density_at(vehicle.position)
+            weighted_x += vehicle.position.x * weight
+            weighted_y += vehicle.position.y * weight
+            total_weight += weight
+
+        for hotspot, weight in self.hotspots:
+            hotspot_weight = 3.0 * weight
+            weighted_x += hotspot.x * hotspot_weight
+            weighted_y += hotspot.y * hotspot_weight
+            total_weight += hotspot_weight
+
+        if total_weight == 0.0:
+            return Position(self.config.area_width_m / 2.0, self.config.area_height_m / 2.0)
+        return Position(weighted_x / total_weight, weighted_y / total_weight)
+
     def traffic_density_at(self, position: Position) -> float:
         """Estimate normalized local demand from hotspots and nearby vehicles."""
 
@@ -132,15 +187,23 @@ class SimulationEnvironment:
         return self._clamp(loss, low=0.01, high=0.85)
 
     def get_vehicle(self, vehicle_id: int) -> Vehicle:
+        """Return a normal vehicle by its stable integer id."""
+
         return self.vehicles[vehicle_id]
 
     def get_provider(self, provider_id: int) -> ProviderVehicle:
+        """Return a provider vehicle by its stable integer id."""
+
         return self.providers[provider_id]
 
     def get_edge(self, edge_id: int) -> EdgeServer:
+        """Return a fixed edge server by its stable integer id."""
+
         return self.edge_servers[edge_id]
 
     def _create_vehicles(self) -> List[Vehicle]:
+        """Create initial moving vehicles with random positions and headings."""
+
         vehicles: List[Vehicle] = []
         for index in range(self.scenario.vehicle_count):
             vehicles.append(
@@ -237,4 +300,6 @@ class SimulationEnvironment:
 
     @staticmethod
     def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
+        """Clamp a numeric value to the inclusive `[low, high]` interval."""
+
         return max(low, min(high, value))

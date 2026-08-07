@@ -1,8 +1,8 @@
 # Architecture
 
-This file explains the code structure of Phase 1. The implementation is kept
-small on purpose: every file has one clear job, and Phase 2 can replace the
-baseline parts without rewriting the whole simulator.
+This file explains the code structure of the full project. The implementation
+keeps Phase 1 as the baseline and adds Phase 2 as a separate package, so the
+comparison with the baseline is explicit.
 
 Note: the filename follows the requested spelling, `architecure.md`.
 
@@ -13,9 +13,13 @@ The simulator follows this loop:
 1. Create a scenario.
 2. Create the environment: vehicles, provider vehicles, edge servers, traffic
    hotspots, and weather.
-3. Place provider vehicles randomly.
-4. For each simulation step:
+3. Run the Phase 1 baseline with random provider placement.
+4. Train the Phase 2 SDN placement controller.
+5. Evaluate the trained SDN/PPO/Kalman method.
+6. For each simulation step:
    - generate vehicle tasks
+   - update provider placement on the large SDN timescale
+   - estimate link quality with Kalman filters
    - build valid offloading candidates
    - remove invalid out-of-range links
    - score the remaining candidates
@@ -37,16 +41,24 @@ The simulator follows this loop:
 │   ├── placement.py
 │   ├── offloading.py
 │   └── simulation.py
+├── phase2/
+│   ├── __init__.py
+│   ├── kalman.py
+│   ├── sdn_controller.py
+│   ├── runner.py
+│   └── plotting.py
 ├── presequites.md
 ├── architecure.md
+├── decisions.md
 ├── explanation.md
+├── flow.md
 └── latex/
     └── main.tex
 ```
 
 ## `run_phase1.py`
 
-This is the command-line entrypoint.
+This is the Phase 1 command-line entrypoint.
 
 Responsibilities:
 
@@ -71,13 +83,14 @@ python3 run_phase1.py
 
 ## `phase1/config.py`
 
-This file contains all scenario and simulation parameters.
+This file contains scenario, simulation, and Phase 2 learning parameters.
 
 Important models:
 
 - `ScenarioConfig`: stores the number of vehicles, provider vehicles, and edge
   servers for one required scenario
 - `SimulationConfig`: stores shared physical/network/workload constants
+- `Phase2Config`: stores PPO, Kalman, reward, and evaluation parameters
 
 Important constants:
 
@@ -126,6 +139,8 @@ Responsibilities:
 - generate tasks
 - estimate traffic density
 - estimate packet-loss probability
+- expose the current demand center for the SDN controller
+- safely move provider vehicles to controller-selected coordinates
 - expose nodes by ID
 
 Important functions:
@@ -162,13 +177,14 @@ here while keeping the environment and offloading code mostly unchanged.
 
 ## `phase1/offloading.py`
 
-This file contains the task-offloading algorithm.
+This file contains the baseline task-offloading algorithm and the Phase 2
+offloading hook.
 
 Main class:
 
 - `TaskOffloader`
 
-The algorithm:
+The baseline algorithm:
 
 1. Always add local processing as a valid candidate.
 2. Add provider candidates only when the provider is in range.
@@ -189,6 +205,10 @@ score = delay + loss_weight * packet_loss + deadline_penalty
 Invalid choices are removed before scoring. This is the Phase 1 version of
 action masking.
 
+In Phase 2, the same offloader receives a Kalman link estimator. That means the
+route scoring uses predicted packet loss instead of raw instantaneous packet
+loss.
+
 ## `phase1/simulation.py`
 
 This file runs a complete scenario and writes outputs.
@@ -206,6 +226,76 @@ Outputs:
 - `outputs/phase1/steps_scenario_1.csv`
 - `outputs/phase1/steps_scenario_2.csv`
 
+## `run_phase2.py`
+
+This is the Phase 2 command-line entrypoint.
+
+Responsibilities:
+
+- run the Phase 1 baseline for comparison
+- train the SDN/PPO-style placement controller
+- evaluate the Phase 2 method
+- write CSV files and SVG plots
+
+Example:
+
+```bash
+python3 run_phase2.py
+```
+
+## `phase2/kalman.py`
+
+This file implements link-quality estimation.
+
+Important classes:
+
+- `ScalarKalmanFilter`: tracks one packet-loss probability
+- `LinkQualityEstimator`: keeps one Kalman filter per directed wireless link
+
+The estimator receives noisy packet-loss measurements and returns smoothed
+predictions. The offloader uses these predictions when scoring routes.
+
+## `phase2/sdn_controller.py`
+
+This file implements the large-timescale SDN placement controller.
+
+The controller uses a small PPO-style policy over placement strategies:
+
+- `demand_center`
+- `coverage_grid`
+- `edge_bridge`
+- `loss_aware`
+- `balanced_grid`
+- `capacity_demand`
+
+Each strategy produces continuous provider coordinates. PPO-style clipped
+updates change the probability of choosing each strategy based on episode
+reward.
+
+## `phase2/runner.py`
+
+This file coordinates training, evaluation, comparison, and CSV output.
+
+It runs:
+
+- baseline random placement
+- SDN/PPO/Kalman method
+
+Then it writes the comparison outputs under `outputs/phase2/`.
+
+## `phase2/plotting.py`
+
+This file writes dependency-free SVG plots.
+
+Generated plots:
+
+- average packet-loss ratio
+- average delay
+- missed deadlines
+- blind spots
+- average provider locations
+- RL convergence curve
+
 ## Dependency Policy
 
 Phase 1 uses only the Python standard library.
@@ -217,12 +307,9 @@ This was intentional:
 - it is easier to explain in a course presentation
 - Phase 2 can add plotting or learning libraries later
 
-## Where Phase 2 Fits
+## Baseline And Full Method
 
-Phase 2 can extend this structure naturally:
+The Phase 1 baseline remains available through `run_phase1.py`.
 
-- replace `random_provider_placement()` with an SDN/PPO placement policy
-- add Kalman-based link-quality estimation before packet-loss prediction
-- add reinforcement learning for decentralized offloading
-- add plotting scripts using the existing CSV outputs
-- compare learned methods against this Phase 1 baseline
+The full Phase 2 method is available through `run_phase2.py`, which compares the
+baseline against the SDN/PPO/Kalman method under both required scenarios.

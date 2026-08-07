@@ -1,201 +1,205 @@
-# Phase 1 Explanation
+# Project Explanation
 
-This file is written as a compact presentation script. It explains what was
-implemented, why it was implemented this way, and how the project is structured.
+This file is a compact presentation script for the full project.
 
 ## Project Goal
 
-The project is about vehicular edge computing. Normal vehicles create
-computational tasks. These tasks can be processed locally, sent to mobile
-provider vehicles, or sent to fixed edge servers.
+The project is about vehicular edge computing. Normal vehicles generate
+computational tasks. These tasks can be processed on the vehicle itself, on a
+provider vehicle, or on a fixed edge server.
 
-The main objective is to reduce:
+The main goal is to reduce:
 
 - packet loss
-- system delay
-- missed task deadlines
+- delay
+- missed deadlines
 - blind spots
 
-Phase 1 does not implement the final reinforcement learning method. Instead, it
-builds the simulation environment and a clear baseline method.
+The project uses a two-timescale idea:
 
-## What Phase 1 Implements
+- large timescale: the SDN controller places provider vehicles
+- small timescale: each vehicle decides task offloading and route selection
 
-Phase 1 implements four main parts:
+## Phase 1 Baseline
 
-1. A two-dimensional simulation environment.
-2. Random placement for provider vehicles.
-3. A task-offloading algorithm.
-4. CSV outputs for the required metrics.
+Phase 1 builds the baseline system.
 
-The implementation supports both required scenarios:
+It includes:
+
+- a two-dimensional simulation environment
+- the two required scenarios
+- random provider vehicle placement
+- a simple task-offloading algorithm
+- CSV metrics
+
+The Phase 1 offloader checks valid actions and chooses the action with the best
+delay/loss/deadline score.
+
+## Phase 2 Full Method
+
+Phase 2 keeps the Phase 1 baseline and adds the full project method.
+
+It includes:
+
+- Kalman-based link-quality estimation
+- SDN provider placement
+- a small PPO-style policy update
+- decentralized offloading using predicted packet loss
+- final plots
+- comparison with the baseline
+
+## Scenarios
+
+The project requires two scenarios:
 
 | Scenario | Vehicles | Provider vehicles | Edge servers |
 |---|---:|---:|---:|
 | Scenario 1 | 20 | 3 | 2 |
 | Scenario 2 | 50 | 6 | 4 |
 
-## Simulation Environment
+Both scenarios are run for the baseline and the Phase 2 method.
+
+## Environment
 
 The environment is a `1000m x 1000m` two-dimensional area.
 
 It contains:
 
-- normal vehicles
+- moving vehicles
 - provider vehicles
 - fixed edge servers
 - traffic hotspots
-- weather states
+- weather
 
-Vehicles move during the simulation. Weather changes occasionally. Traffic
-density is estimated from hotspots and nearby vehicles.
+Vehicles generate tasks during the simulation. Weather changes over time.
+Traffic density depends on hotspots and nearby vehicles.
 
-Packet-loss probability is computed from:
+## Packet Loss
 
-- distance between sender and receiver
+For each wireless link, the simulator first checks range.
+
+If the receiver is outside radio range, the link is invalid.
+
+If the link is valid, packet loss is estimated from:
+
+- distance
 - traffic density
-- weather condition
+- weather
 
-If two nodes are outside radio range, the link is invalid.
-
-## Random Provider Placement
-
-Provider vehicles are placed randomly and uniformly in the map.
-
-This satisfies the Phase 1 requirement and gives us a baseline. In Phase 2, this
-part can be replaced by an SDN controller that learns better provider locations.
-
-## Task Generation
-
-At each simulation step, every vehicle may generate a task.
-
-Each task has:
-
-- input data size
-- required CPU cycles
-- deadline
-
-These values are randomly generated inside configured ranges.
-
-## Offloading Algorithm
-
-For every task, the algorithm builds possible candidates:
-
-- process locally on the vehicle
-- send to a provider vehicle
-- send directly to an edge server
-- send to an edge server through a provider relay
-
-Invalid candidates are removed. For example, if a provider is out of radio
-range, that candidate is not considered.
-
-For each valid candidate, the algorithm estimates:
-
-- transmission delay
-- processing delay
-- packet-loss probability
-- expected retransmissions
-- whether the task misses its deadline
-
-Then it computes a score:
+The basic formula is:
 
 ```text
-score = delay + loss_weight * packet_loss + deadline_penalty
+loss = base_loss + distance_effect + traffic_effect + weather_penalty
 ```
 
-The candidate with the smallest score is selected.
+Phase 2 then sends this noisy link measurement through a Kalman filter, so the
+offloader uses predicted packet loss instead of only the raw current value.
 
-## Metrics
+## Delay
 
-The simulator records:
-
-- average packet-loss ratio
-- average system delay
-- number of missed deadlines
-- number of blind-spot occurrences
-- average provider vehicle position
-- destination counts
-- route counts
-
-The results are written to CSV files under:
+For local processing:
 
 ```text
-outputs/phase1/
+delay = queue time + compute time
 ```
 
-The main file is:
+For remote processing:
 
 ```text
-outputs/phase1/summary.csv
+delay = transmission delay + destination queue time + compute time
 ```
 
-The per-step files are:
+Transmission delay includes expected retransmissions:
 
 ```text
-outputs/phase1/steps_scenario_1.csv
-outputs/phase1/steps_scenario_2.csv
+expected attempts = 1 / (1 - packet loss)
+```
+
+So higher packet loss increases effective transmission delay.
+
+## Offloading
+
+For each task, the vehicle checks:
+
+- local processing
+- direct provider offloading
+- direct edge offloading
+- provider-to-edge relay
+
+Invalid routes are removed with action masking.
+
+The offloader then scores valid candidates and chooses the lowest-score action.
+In Phase 2, this score uses Kalman-predicted packet loss.
+
+## SDN/PPO Placement
+
+The SDN controller acts on the large timescale. Every few steps, it updates
+provider vehicle positions.
+
+The controller state includes:
+
+- demand center
+- weather effect
+- average Kalman link-loss estimate
+- provider queue pressure
+
+The controller has several placement strategies:
+
+- demand center
+- coverage grid
+- edge bridge
+- loss-aware placement
+- balanced grid
+- capacity-demand clustering
+
+During training, a PPO-style clipped update changes the probability of choosing
+each strategy. The reward penalizes delay, packet loss, missed deadlines, and
+blind spots.
+
+## Outputs
+
+Phase 2 writes:
+
+```text
+outputs/phase2/summary.csv
+outputs/phase2/convergence.csv
+outputs/phase2/steps_scenario_1_baseline.csv
+outputs/phase2/steps_scenario_1_sdn_ppo_kalman.csv
+outputs/phase2/steps_scenario_2_baseline.csv
+outputs/phase2/steps_scenario_2_sdn_ppo_kalman.csv
+```
+
+It also writes plots:
+
+```text
+outputs/phase2/plots/average_packet_loss.svg
+outputs/phase2/plots/average_delay.svg
+outputs/phase2/plots/missed_deadlines.svg
+outputs/phase2/plots/blind_spots.svg
+outputs/phase2/plots/average_provider_locations.svg
+outputs/phase2/plots/rl_convergence.svg
 ```
 
 ## Code Structure
 
-The project code is split into small files:
-
-- `phase1/config.py`: scenario and simulation parameters
+- `phase1/config.py`: shared parameters
 - `phase1/models.py`: data models
-- `phase1/environment.py`: world state, mobility, weather, traffic, packet loss
-- `phase1/placement.py`: random provider placement
-- `phase1/offloading.py`: task-offloading logic
-- `phase1/simulation.py`: simulation loop and CSV output
-- `run_phase1.py`: command-line runner
+- `phase1/environment.py`: simulation world
+- `phase1/placement.py`: random baseline placement
+- `phase1/offloading.py`: task offloading and action masking
+- `phase1/simulation.py`: Phase 1 runner helpers
+- `phase2/kalman.py`: Kalman link-quality estimation
+- `phase2/sdn_controller.py`: SDN/PPO-style provider placement
+- `phase2/runner.py`: training, evaluation, and comparison
+- `phase2/plotting.py`: SVG plots
+- `run_phase1.py`: baseline entrypoint
+- `run_phase2.py`: full project entrypoint
 
-This structure keeps Phase 1 simple and makes Phase 2 easier. The learned SDN
-placement policy can replace the random placement module, and the learned
-offloading policy can replace the score-based offloader.
+## Final Summary
 
-## Design Decisions
+The final implementation compares a random-placement baseline with an
+SDN/PPO/Kalman method. The SDN controller places provider vehicles based on
+traffic, weather, and Kalman link-quality estimates. Vehicles then make
+decentralized offloading decisions using predicted packet loss and action
+masking. The project outputs the required metrics and plots for both scenarios.
 
-The code uses only the Python standard library.
-
-This was chosen because Phase 1 should be easy to run, read, and present. It
-also avoids dependency problems before the final learning and plotting phase.
-
-The simulator uses dataclasses for clarity. Each important concept has a direct
-model: task, vehicle, provider, edge server, link, candidate, decision, and
-metrics.
-
-The packet-loss model is simple but meaningful. It captures the three important
-ideas from the project statement: distance, traffic, and weather.
-
-The offloading algorithm is also simple but complete. It supports destination
-selection and route selection, including relay routes through provider vehicles.
-
-## How To Run
-
-Run both required scenarios:
-
-```bash
-python3 run_phase1.py
-```
-
-Run only scenario 1:
-
-```bash
-python3 run_phase1.py --scenario 1
-```
-
-Run a short test:
-
-```bash
-python3 run_phase1.py --scenario 1 --steps 10
-```
-
-## Final Presentation Summary
-
-In Phase 1, we implemented the baseline simulator for the SDN vehicular edge
-computing project. The simulator creates vehicles, provider vehicles, edge
-servers, weather, traffic, packet-loss estimates, and random tasks. Provider
-vehicles are placed randomly as the baseline placement method. For every task,
-the offloading algorithm checks all valid destinations and routes, removes
-out-of-range actions, estimates delay and packet loss, and selects the candidate
-with the lowest score. The simulator records all required Phase 1 metrics and
-writes them to CSV files for later plotting and comparison in Phase 2.

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+<rect width="100%" height="100%" fill="white" />
+<text x="300.0" y="28" text-anchor="middle" font-size="20" font-family="Arial">Average provider vehicle locations</text>
+<path d="M70,70 V530 H530" stroke="#444" stroke-width="1.2" fill="none" />
+<circle cx="139.1" cy="227.4" r="8" fill="#4C78A8" />
+<text x="151.1" y="219.4" font-size="12">scenario_1 baseline_random</text>
+<circle cx="281.4" cy="277.9" r="8" fill="#2CA02C" />
+<text x="293.4" y="269.9" font-size="12">scenario_1 sdn_ppo_kalman</text>
+<circle cx="315.2" cy="387.9" r="8" fill="#4C78A8" />
+<text x="327.2" y="379.9" font-size="12">scenario_2 baseline_random</text>
+<circle cx="300.3" cy="284.2" r="8" fill="#2CA02C" />
+<text x="312.3" y="276.2" font-size="12">scenario_2 sdn_ppo_kalman</text>
+<text x="300.0" y="580" text-anchor="middle" font-size="12">x coordinate (m), y coordinate (m)</text>
+</svg>

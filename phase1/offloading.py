@@ -1,13 +1,22 @@
-"""Task-offloading algorithm for Phase 1."""
+"""Task-offloading algorithms for baseline and Phase 2 runs.
+
+The default `TaskOffloader` is the Phase 1 score-based baseline. Phase 2 reuses
+the same action construction and masking, but injects a Kalman link estimator so
+vehicles decide from predicted link quality instead of directly trusting the raw
+packet-loss map.
+"""
 
 from __future__ import annotations
 
 from math import prod
-from typing import List, Sequence
+from random import Random
+from typing import Callable, List, Optional, Sequence
 
 from .config import SimulationConfig
 from .environment import SimulationEnvironment
 from .models import Link, OffloadCandidate, OffloadDecision, Position, Task
+
+LossEstimator = Callable[[str, str, float, Random], float]
 
 
 class TaskOffloader:
@@ -20,8 +29,21 @@ class TaskOffloader:
     3. Select the candidate with the lowest delay/loss/deadline score.
     """
 
-    def __init__(self, config: SimulationConfig):
+    def __init__(
+        self,
+        config: SimulationConfig,
+        loss_estimator: Optional[LossEstimator] = None,
+    ):
+        """Store scoring parameters and optional Kalman/LQE hook.
+
+        When `loss_estimator` is absent, the offloader uses the environment's
+        current packet-loss value directly. When present, the estimator receives
+        the raw loss and returns a predicted loss for scoring and retransmission
+        estimation.
+        """
+
         self.config = config
+        self.loss_estimator = loss_estimator
 
     def decide(self, task: Task, environment: SimulationEnvironment) -> OffloadDecision:
         """Return the best offloading decision for one task and update node queues."""
@@ -213,9 +235,13 @@ class TaskOffloader:
     ) -> Link | None:
         """Create one wireless link, or return None when the target is out of range."""
 
-        loss = environment.packet_loss_probability(source, target, radio_range_m)
-        if loss is None:
+        raw_loss = environment.packet_loss_probability(source, target, radio_range_m)
+        if raw_loss is None:
             return None
+        if self.loss_estimator is None:
+            loss = raw_loss
+        else:
+            loss = self.loss_estimator(source_id, target_id, raw_loss, environment.rng)
 
         expected_attempts = 1.0 / max(0.01, 1.0 - loss)
         expected_retransmissions = max(0.0, expected_attempts - 1.0)

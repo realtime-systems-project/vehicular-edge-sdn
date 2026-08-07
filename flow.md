@@ -1,9 +1,9 @@
-# Complete Phase 1 Flow
+# Complete Project Flow
 
-This file explains the full flow of Phase 1, from running the program to getting
-the output files.
+This file explains the full project flow, from running the baseline to running
+the Phase 2 SDN/PPO/Kalman comparison.
 
-## 1. Run The Program
+## 1. Run The Baseline
 
 Run:
 
@@ -11,14 +11,28 @@ Run:
 python3 run_phase1.py
 ```
 
-This runs both required scenarios:
+This runs the Phase 1 baseline for both required scenarios:
 
 ```text
 Scenario 1: 20 vehicles, 3 provider vehicles, 2 edge servers
 Scenario 2: 50 vehicles, 6 provider vehicles, 4 edge servers
 ```
 
-## 2. Load Configuration
+## 2. Run The Full Phase 2 Method
+
+Run:
+
+```bash
+python3 run_phase2.py
+```
+
+This runs:
+
+1. the random-placement baseline
+2. the SDN/PPO/Kalman method
+3. the final comparison plots
+
+## 3. Load Configuration
 
 `run_phase1.py` reads the scenario definitions and simulation parameters from:
 
@@ -39,7 +53,15 @@ This file defines values such as:
 
 So before the simulation starts, all required parameters are known.
 
-## 3. Create The Environment
+`run_phase2.py` also reads `Phase2Config`, which contains:
+
+- PPO training episodes
+- SDN update interval
+- Kalman noise values
+- reward weights
+- Phase 2 offloading weights
+
+## 4. Create The Environment
 
 For each scenario, the code creates a `SimulationEnvironment`.
 
@@ -55,7 +77,7 @@ Normal vehicles are placed randomly and move during the simulation. Edge servers
 are fixed. Provider vehicles are placed randomly because Phase 1 asks for random
 placement.
 
-## 4. Random Provider Placement
+## 5. Random Provider Placement
 
 Provider vehicles are placed by:
 
@@ -72,22 +94,51 @@ y = random position in map height
 
 So each provider starts somewhere inside the two-dimensional area.
 
-In Phase 2, this part can be replaced by an SDN/PPO placement method.
+This is used as the baseline method.
 
-## 5. Simulation Steps
+## 6. Phase 2 SDN Placement
+
+In Phase 2, provider placement is controlled by the SDN controller.
+
+Every `10` simulation steps, the controller observes:
+
+- demand center
+- weather
+- Kalman link-loss estimate
+- provider queue pressure
+
+Then it chooses a placement strategy and moves provider vehicles toward the new
+coordinates.
+
+## 7. Kalman Link Estimation
+
+For each wireless link, the simulator computes a raw packet-loss value.
+
+Phase 2 treats that raw value as a noisy measurement and updates a Kalman
+filter.
+
+The offloader then uses the Kalman estimate:
+
+```text
+raw packet loss -> noisy measurement -> Kalman filter -> predicted packet loss
+```
+
+## 8. Simulation Steps
 
 The simulation runs for `120` steps by default.
 
 At each step:
 
 1. Generate tasks.
-2. Offload each task.
-3. Save metrics.
-4. Move vehicles.
-5. Update queues.
-6. Maybe update weather.
+2. Update SDN placement if this is a large-timescale step.
+3. Estimate link quality with Kalman filters.
+4. Offload each task.
+5. Save metrics.
+6. Move vehicles.
+7. Update queues.
+8. Maybe update weather.
 
-## 6. Task Generation
+## 9. Task Generation
 
 At each step, every normal vehicle has a chance to generate a task.
 
@@ -107,7 +158,7 @@ compute = 1.8 G cycles
 deadline = 1.1 seconds
 ```
 
-## 7. Build Offloading Options
+## 10. Build Offloading Options
 
 For each task, the offloader checks possible choices:
 
@@ -119,7 +170,7 @@ For each task, the offloader checks possible choices:
 Local processing is always possible. Remote options are possible only if the
 nodes are in radio range.
 
-## 8. Action Masking
+## 11. Action Masking
 
 Invalid choices are removed before scoring.
 
@@ -145,7 +196,7 @@ The same idea is used for:
 So the algorithm never chooses impossible routes. This is the simple Phase 1
 version of action masking.
 
-## 9. Estimate Packet Loss
+## 12. Estimate Packet Loss
 
 For every valid wireless link, the environment estimates packet loss.
 
@@ -163,7 +214,7 @@ packet loss = base loss + distance effect + traffic effect + weather effect
 
 A longer link, crowded area, or bad weather gives higher packet loss.
 
-## 10. Estimate Delay
+## 13. Estimate Delay
 
 Each candidate gets a delay.
 
@@ -182,7 +233,7 @@ delay = transmission delay + queue time at destination + compute time
 Transmission delay includes the expected effect of retransmissions. If packet
 loss is high, expected retransmissions increase, so delay increases.
 
-## 11. Score Each Candidate
+## 14. Score Each Candidate
 
 Each candidate gets a score:
 
@@ -204,7 +255,7 @@ The score balances:
 
 If a candidate misses the deadline, it gets an extra penalty.
 
-## 12. Choose The Best Candidate
+## 15. Choose The Best Candidate
 
 The offloader selects the candidate with the lowest score.
 
@@ -217,7 +268,7 @@ So for each task, the final decision includes:
 - missed deadline status
 - expected retransmissions
 
-## 13. Update Queue
+## 16. Update Queue
 
 After choosing a destination, the simulator updates that node's queue.
 
@@ -231,7 +282,7 @@ provider 2 queue increases
 This matters because future tasks may wait longer if many tasks are sent to the
 same node.
 
-## 14. Count Blind Spots
+## 17. Count Blind Spots
 
 A blind spot means:
 
@@ -242,7 +293,7 @@ the vehicle has no valid remote offloading option
 The vehicle can still process locally, but it cannot reach any provider or edge
 server.
 
-## 15. Save Step Metrics
+## 18. Save Step Metrics
 
 At the end of each step, the simulator saves metrics such as:
 
@@ -255,7 +306,7 @@ At the end of each step, the simulator saves metrics such as:
 - destination counts
 - route counts
 
-## 16. Advance The Environment
+## 19. Advance The Environment
 
 Then the environment advances:
 
@@ -265,7 +316,7 @@ Then the environment advances:
 
 After that, the next step begins.
 
-## 17. Final Summary
+## 20. Final Summary
 
 After all steps finish, the simulator creates a summary for the scenario:
 
@@ -278,9 +329,9 @@ After all steps finish, the simulator creates a summary for the scenario:
 - destination counts
 - route counts
 
-## 18. Output Files
+## 21. Output Files
 
-The program writes three CSV files:
+Phase 1 writes:
 
 ```text
 outputs/phase1/summary.csv
@@ -288,16 +339,29 @@ outputs/phase1/steps_scenario_1.csv
 outputs/phase1/steps_scenario_2.csv
 ```
 
-`summary.csv` has one row per scenario.
+Phase 2 writes:
 
-The step files have one row per simulation step.
+```text
+outputs/phase2/summary.csv
+outputs/phase2/convergence.csv
+outputs/phase2/steps_scenario_1_baseline.csv
+outputs/phase2/steps_scenario_1_sdn_ppo_kalman.csv
+outputs/phase2/steps_scenario_2_baseline.csv
+outputs/phase2/steps_scenario_2_sdn_ppo_kalman.csv
+```
+
+Phase 2 plots are written under:
+
+```text
+outputs/phase2/plots/
+```
 
 ## One-Sentence Summary
 
 ```text
 create vehicles/providers/edges -> randomly place providers -> generate tasks
+-> train SDN placement policy -> estimate link loss with Kalman filters
 -> remove invalid routes -> estimate loss and delay -> choose lowest-score
-offloading action -> update queues and metrics -> repeat for all steps -> save
-CSV outputs
+offloading action -> update queues and metrics -> compare with baseline -> save
+CSV and SVG outputs
 ```
-

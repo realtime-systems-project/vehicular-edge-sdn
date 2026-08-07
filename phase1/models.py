@@ -113,7 +113,11 @@ class OffloadDecision:
 
 @dataclass
 class StepMetrics:
-    """Aggregated results for one simulation time step."""
+    """Aggregated results for one simulation time step.
+
+    The provider location fields are optional in spirit but always filled by the
+    runners. They support the required provider-location plots in Phase 2.
+    """
 
     step: int
     task_count: int = 0
@@ -122,15 +126,23 @@ class StepMetrics:
     expected_retransmissions: float = 0.0
     missed_deadlines: int = 0
     blind_spots: int = 0
+    average_provider_x: float = 0.0
+    average_provider_y: float = 0.0
     destination_counts: Dict[str, int] = field(default_factory=dict)
     route_counts: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
 class SimulationSummary:
-    """Aggregated results for a full scenario run."""
+    """Aggregated results for a full scenario run.
+
+    `method_name` is `baseline` for Phase 1-style runs and `sdn_ppo_kalman` for
+    the full Phase 2 method. Keeping it inside the summary makes comparison CSVs
+    and plots straightforward.
+    """
 
     scenario_name: str
+    method_name: str
     vehicle_count: int
     provider_count: int
     edge_count: int

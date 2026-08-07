@@ -1,0 +1,5 @@
+scenario,method,vehicles,providers,edge_servers,steps,tasks,avg_packet_loss,avg_delay_s,expected_retransmissions,missed_deadlines,blind_spots,avg_provider_x,avg_provider_y,destination_counts,route_counts
+scenario_1,baseline_random,20,3,2,120,819,0.098804,0.405336,106.377471,32,162,150.252,657.831,edge:246;provider:162;vehicle:411,local:411;vehicle_to_edge:246;vehicle_to_provider:162
+scenario_1,sdn_ppo_kalman,20,3,2,120,817,0.059154,0.447662,60.929528,18,92,459.650,548.032,edge:95;provider:189;vehicle:533,local:533;vehicle_provider_edge:5;vehicle_to_edge:90;vehicle_to_provider:189
+scenario_2,baseline_random,50,6,4,120,2121,0.096770,0.347993,259.083675,37,67,533.117,308.846,edge:669;provider:607;vehicle:845,local:845;vehicle_provider_edge:33;vehicle_to_edge:636;vehicle_to_provider:607
+scenario_2,sdn_ppo_kalman,50,6,4,120,2096,0.059596,0.422077,157.291644,35,9,500.563,534.280,edge:304;provider:461;vehicle:1331,local:1331;vehicle_provider_edge:6;vehicle_to_edge:298;vehicle_to_provider:461

@@ -439,3 +439,70 @@ The simulator writes:
 - `summary.csv`: one row per scenario
 - `steps_scenario_1.csv`: time-series metrics for scenario 1
 - `steps_scenario_2.csv`: time-series metrics for scenario 2
+
+## 32. Baseline Comparison
+
+In Phase 2, we compare two methods:
+
+- baseline: random provider placement
+- SDN/PPO/Kalman: learned placement with Kalman link prediction
+
+The point of the comparison is to see whether the smarter method improves the
+required metrics under the same scenarios.
+
+## 33. Reward
+
+Reward is the value that tells an RL method whether its action was good or bad.
+
+In this project, good means:
+
+- lower delay
+- lower packet loss
+- fewer missed deadlines
+- fewer blind spots
+
+So the reward is based on the negative cost:
+
+```text
+reward = -(delay cost + packet-loss cost + deadline cost + blind-spot cost)
+```
+
+Higher reward means better behavior.
+
+## 34. PPO Clipping
+
+PPO clipping is a safety rule used during policy updates.
+
+The idea is simple:
+
+```text
+do not let the policy change too much after one episode
+```
+
+If the policy changes too aggressively, training can become unstable. Clipping
+keeps the update controlled.
+
+## 35. Provider Placement Strategy
+
+A provider placement strategy is a rule that creates provider vehicle
+coordinates.
+
+Examples:
+
+- put providers near the demand center
+- spread providers across the map
+- put providers between demand and edge servers
+- cluster providers around vehicle demand
+
+In our Phase 2 implementation, PPO learns which strategy is useful.
+
+## 36. SVG Plot
+
+SVG is an image format based on text.
+
+We use SVG for plots because:
+
+- it does not require Matplotlib
+- GitHub can display it
+- it is easy to commit
+- it is enough for the required project plots

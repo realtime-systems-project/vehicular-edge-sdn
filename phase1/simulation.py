@@ -1,4 +1,8 @@
-"""Simulation runner and CSV output helpers."""
+"""Simulation runner and CSV output helpers.
+
+The module keeps Phase 1 baseline execution available and also exposes summary
+helpers reused by the Phase 2 comparison runner.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,7 @@ from .offloading import TaskOffloader
 def run_simulation(
     scenario: ScenarioConfig,
     config: SimulationConfig,
+    method_name: str = "baseline",
 ) -> SimulationSummary:
     """Run one scenario and return both per-step and whole-run metrics."""
 
@@ -25,12 +30,13 @@ def run_simulation(
     for _ in range(config.steps):
         tasks = environment.generate_tasks()
         decisions = [offloader.decide(task, environment) for task in tasks]
-        step_metrics.append(_summarize_step(environment.step_index, decisions))
+        step_metrics.append(_summarize_step(environment, decisions))
         environment.advance()
 
     provider_position = environment.provider_average_position()
     return SimulationSummary(
         scenario_name=scenario.name,
+        method_name=method_name,
         vehicle_count=scenario.vehicle_count,
         provider_count=scenario.provider_count,
         edge_count=scenario.edge_count,
@@ -59,6 +65,7 @@ def write_summary_csv(summaries: Iterable[SimulationSummary], path: Path) -> Non
             handle,
             fieldnames=[
                 "scenario",
+                "method",
                 "vehicles",
                 "providers",
                 "edge_servers",
@@ -80,6 +87,7 @@ def write_summary_csv(summaries: Iterable[SimulationSummary], path: Path) -> Non
             writer.writerow(
                 {
                     "scenario": summary.scenario_name,
+                    "method": summary.method_name,
                     "vehicles": summary.vehicle_count,
                     "providers": summary.provider_count,
                     "edge_servers": summary.edge_count,
@@ -113,6 +121,8 @@ def write_step_metrics_csv(summary: SimulationSummary, path: Path) -> None:
                 "expected_retransmissions",
                 "missed_deadlines",
                 "blind_spots",
+                "avg_provider_x",
+                "avg_provider_y",
                 "destination_counts",
                 "route_counts",
             ],
@@ -128,17 +138,28 @@ def write_step_metrics_csv(summary: SimulationSummary, path: Path) -> None:
                     "expected_retransmissions": f"{metric.expected_retransmissions:.6f}",
                     "missed_deadlines": metric.missed_deadlines,
                     "blind_spots": metric.blind_spots,
+                    "avg_provider_x": f"{metric.average_provider_x:.3f}",
+                    "avg_provider_y": f"{metric.average_provider_y:.3f}",
                     "destination_counts": _format_counts(metric.destination_counts),
                     "route_counts": _format_counts(metric.route_counts),
                 }
             )
 
 
-def _summarize_step(step: int, decisions: List[OffloadDecision]) -> StepMetrics:
+def _summarize_step(
+    environment: SimulationEnvironment,
+    decisions: List[OffloadDecision],
+) -> StepMetrics:
     """Convert task-level decisions into one row of step-level metrics."""
 
+    provider_position = environment.provider_average_position()
+    step = environment.step_index
     if not decisions:
-        return StepMetrics(step=step)
+        return StepMetrics(
+            step=step,
+            average_provider_x=provider_position.x,
+            average_provider_y=provider_position.y,
+        )
 
     destination_counts: Dict[str, int] = {}
     route_counts: Dict[str, int] = {}
@@ -165,6 +186,8 @@ def _summarize_step(step: int, decisions: List[OffloadDecision]) -> StepMetrics:
         ),
         missed_deadlines=sum(1 for decision in decisions if decision.candidate.missed_deadline),
         blind_spots=sum(1 for decision in decisions if decision.blind_spot),
+        average_provider_x=provider_position.x,
+        average_provider_y=provider_position.y,
         destination_counts=destination_counts,
         route_counts=route_counts,
     )
