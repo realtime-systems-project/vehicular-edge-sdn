@@ -32,11 +32,8 @@ and, for Phase 2, SVG plots in the selected output directory.
 ## Files
 
 - [`phase1/`](phase1/), [`phase2/`](phase2/): simulation and controller code.
-- [`docs/prerequisites.md`](docs/prerequisites.md): concepts from scratch.
-- [`docs/flow.md`](docs/flow.md): detailed execution flow.
-- [`docs/architecture.md`](docs/architecture.md), [`docs/explanation.md`](docs/explanation.md), [`docs/decisions.md`](docs/decisions.md): structure, presentation guide, and decisions.
 - [`docs/requirements/`](docs/requirements/): original project instructions.
 - [`reports/`](reports/): Word report, PDFs, and LaTeX source.
 
-Sandbox experiments and local submission bundles are excluded from Git.
+Explanatory guides, sandbox experiments, and local submission bundles are excluded from Git.
 The Phase 1 baseline is preserved by the `phase1-baseline` tag.

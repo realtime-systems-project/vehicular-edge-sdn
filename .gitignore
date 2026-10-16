@@ -12,6 +12,9 @@ outputs/*
 /.local-artifacts/
 /Phase-*.zip
 
+# Explanatory guides are kept locally only.
+/docs/*.md
+
 # LaTeX build products; source, fonts, and final report stay tracked.
 /reports/latex/build/
 /reports/latex/*.aux
