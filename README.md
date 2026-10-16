@@ -32,8 +32,8 @@ and, for Phase 2, SVG plots in the selected output directory.
 ## Files
 
 - [`phase1/`](phase1/), [`phase2/`](phase2/): simulation and controller code.
-- [`docs/requirements/`](docs/requirements/): original project instructions.
 - [`reports/`](reports/): Word report, PDFs, and LaTeX source.
 
-Explanatory guides, sandbox experiments, and local submission bundles are excluded from Git.
+Guides, project requirements, sandbox experiments, and local submission bundles
+are excluded from Git.
 The Phase 1 baseline is preserved by the `phase1-baseline` tag.
