@@ -1,66 +1,42 @@
-# Real-Time Course Project
+# Vehicular Edge SDN
 
-This repository contains Project 11 for the real-time systems course: an
-SDN-based vehicular edge computing simulator for provider vehicle placement and
-task offloading.
+Real-time systems course project by Sobhan Aghasi Zadeh and Parmis Hemasian.
+A Python simulator for provider-vehicle placement and task offloading in
+vehicular edge computing.
 
-Phase 1 implements:
+Phase 1 provides random placement and scored offloading. Phase 2 adds SDN
+placement strategies, a lightweight PPO-style strategy policy, and scalar
+Kalman link-loss estimation. This is a simplified simulation: it does not
+implement full neural PPO or learned CTDE offloading policies.
 
-- a two-dimensional simulation environment with vehicles, provider vehicles,
-  fixed edge servers, weather, traffic density, and packet-loss estimates
-- the two required scenarios from `project-english.md`
-- random provider-vehicle placement
-- a readable task-offloading baseline with action masking for out-of-range links
-- CSV outputs for packet loss, delay, missed deadlines, blind spots, provider
-  locations, destination choices, and route choices
+## Run
 
-Phase 2 adds:
-
-- Kalman-based link-quality estimation for packet-loss prediction
-- a lightweight PPO-style SDN controller for provider vehicle placement
-- decentralized task offloading using Kalman predictions
-- baseline-vs-SDN/RL comparison under both required scenarios
-- final CSV files and SVG plots for the required metrics
-
-Run both scenarios:
+Python 3.9+; no external dependencies. Run from the repository root:
 
 ```bash
 python3 run_phase1.py
-```
-
-Run a short smoke simulation:
-
-```bash
-python3 run_phase1.py --scenario 1 --steps 10 --seed 7
-```
-
-Outputs are written under `outputs/phase1/`.
-
-The default run creates only three CSV files:
-
-- `summary.csv`
-- `steps_scenario_1.csv`
-- `steps_scenario_2.csv`
-
-Run the full Phase 2 comparison:
-
-```bash
 python3 run_phase2.py
 ```
 
-Phase 2 outputs are written under `outputs/phase2/`.
+Both commands run the two required scenarios. Existing Phase 2 results and
+plots are in [`outputs/phase2/`](outputs/phase2/). To try a short run without
+overwriting those results:
 
-The default Phase 2 run creates:
+```bash
+python3 run_phase2.py --episodes 2 --steps 10 --output sandbox/smoke
+```
 
-- `summary.csv`
-- `convergence.csv`
-- `steps_scenario_1_baseline.csv`
-- `steps_scenario_1_sdn_ppo_kalman.csv`
-- `steps_scenario_2_baseline.csv`
-- `steps_scenario_2_sdn_ppo_kalman.csv`
-- `plots/average_packet_loss.svg`
-- `plots/average_delay.svg`
-- `plots/missed_deadlines.svg`
-- `plots/blind_spots.svg`
-- `plots/average_provider_locations.svg`
-- `plots/rl_convergence.svg`
+Use `--help` for scenario, seed, and output options. Runs replace CSV files
+and, for Phase 2, SVG plots in the selected output directory.
+
+## Files
+
+- [`phase1/`](phase1/), [`phase2/`](phase2/): simulation and controller code.
+- [`docs/prerequisites.md`](docs/prerequisites.md): concepts from scratch.
+- [`docs/flow.md`](docs/flow.md): detailed execution flow.
+- [`docs/architecture.md`](docs/architecture.md), [`docs/explanation.md`](docs/explanation.md), [`docs/decisions.md`](docs/decisions.md): structure, presentation guide, and decisions.
+- [`docs/requirements/`](docs/requirements/): original project instructions.
+- [`reports/`](reports/): Word report, PDFs, and LaTeX source.
+
+Sandbox experiments and local submission bundles are excluded from Git.
+The Phase 1 baseline is preserved by the `phase1-baseline` tag.

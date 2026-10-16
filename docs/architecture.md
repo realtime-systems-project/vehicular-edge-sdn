@@ -4,8 +4,6 @@ This file explains the code structure of the full project. The implementation
 keeps Phase 1 as the baseline and adds Phase 2 as a separate package, so the
 comparison with the baseline is explicit.
 
-Note: the filename follows the requested spelling, `architecure.md`.
-
 ## High-Level Flow
 
 The simulator follows this loop:
@@ -47,13 +45,21 @@ The simulator follows this loop:
 │   ├── sdn_controller.py
 │   ├── runner.py
 │   └── plotting.py
-├── presequites.md
-├── architecure.md
-├── decisions.md
-├── explanation.md
-├── flow.md
-└── latex/
-    └── main.tex
+├── run_phase2.py
+├── docs/
+│   ├── prerequisites.md
+│   ├── architecture.md
+│   ├── decisions.md
+│   ├── explanation.md
+│   ├── flow.md
+│   └── requirements/
+├── outputs/phase2/
+└── reports/
+    ├── report_phase2_template.docx
+    ├── report_phase2_template.pdf
+    ├── latex-report.pdf
+    └── latex/
+        └── main.tex
 ```
 
 ## `run_phase1.py`

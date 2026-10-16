@@ -4,8 +4,18 @@ __pycache__/
 outputs/*
 !outputs/phase2/
 !outputs/phase2/**
-latex/build/
-Latex/build/
-Latex/*.aux
-Latex/*.log
-Latex/main.pdf
+.DS_Store
+
+# Local experiments and submission copies.
+/sandbox/
+/Phase-2/
+/.local-artifacts/
+/Phase-*.zip
+
+# LaTeX build products; source, fonts, and final report stay tracked.
+/reports/latex/build/
+/reports/latex/*.aux
+/reports/latex/*.log
+/reports/latex/*.out
+/reports/latex/*.synctex.gz
+/reports/latex/main.pdf
