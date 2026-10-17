@@ -1,0 +1,2 @@
+# SUMO itself is installed separately; SUMO_HOME/tools is also supported.
+traci==1.28.0
