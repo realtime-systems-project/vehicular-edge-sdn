@@ -11,6 +11,7 @@ from pathlib import Path
 from phase1.config import SCENARIOS, Phase2Config, SimulationConfig
 from sumo_experiment.runner import run_experiment
 from sumo_experiment.runtime import load_runtime
+from sumo_experiment.gui import prepare_gui
 
 
 def positive_int(value: str) -> int:
@@ -41,7 +42,12 @@ def main() -> None:
     output = args.output or Path("sandbox/sumo") / datetime.now().strftime("run-%Y%m%d-%H%M%S-%f")
     scenario_ids = (1, 2) if args.scenario == "all" else (int(args.scenario),)
     try:
+        if args.gui:
+            prepare_gui()
         runtime = load_runtime(args.sumo_home)
+        if args.gui:
+            if not runtime.gui:
+                raise RuntimeError("sumo-gui is unavailable in this SUMO installation.")
         print(runtime.version(), flush=True)
         summaries = run_experiment(
             [SCENARIOS[index] for index in scenario_ids],
