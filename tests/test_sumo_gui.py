@@ -2,11 +2,14 @@
 
 import os
 import subprocess
+import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from sumo_experiment.gui import prepare_gui, working_display
+from sumo_experiment.gui import prepare_gui, working_display, write_view_settings
+from sumo_experiment.environment import SumoEnvironment
 
 
 class GuiPreflightTests(unittest.TestCase):
@@ -52,6 +55,34 @@ class GuiPreflightTests(unittest.TestCase):
                 patch("sumo_experiment.gui.subprocess.run") as run:
             prepare_gui()
             run.assert_not_called()
+
+    def test_visible_car_symbols_do_not_change_vehicle_physics(self) -> None:
+        """Vehicle enlargement belongs to view settings, not road/vehicle dimensions."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "view.xml"
+            write_view_settings(path)
+            vehicles = ET.parse(path).find("scheme/vehicles")
+            self.assertEqual(vehicles.get("vehicle_exaggeration"), "6")
+            self.assertNotIn("length", vehicles.attrib)
+            self.assertNotIn("maxSpeed", vehicles.attrib)
+
+    def test_playback_delay_only_sleeps_for_missing_time(self) -> None:
+        """A fast TraCI step needs pacing, but an already delayed step does not."""
+
+        environment = SumoEnvironment.__new__(SumoEnvironment)
+        environment.connection = MagicMock()
+        environment.connection.simulation.getStartingTeleportNumber.return_value = 0
+        environment.connection.simulation.getCollidingVehiclesNumber.return_value = 0
+        environment.gui_delay_s = 0.2
+        with patch("sumo_experiment.environment.time.monotonic", side_effect=[10, 10.05]), \
+                patch("sumo_experiment.environment.time.sleep") as sleep:
+            environment._traffic_step()
+            self.assertAlmostEqual(sleep.call_args.args[0], 0.15)
+        with patch("sumo_experiment.environment.time.monotonic", side_effect=[10, 10.3]), \
+                patch("sumo_experiment.environment.time.sleep") as sleep:
+            environment._traffic_step()
+            sleep.assert_not_called()
 
 
 if __name__ == "__main__":

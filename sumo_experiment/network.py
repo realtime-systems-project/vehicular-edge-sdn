@@ -90,6 +90,7 @@ def create_routes(
     root = ET.Element("routes")
     for name, color in (("car", "0,0.65,0.85"), ("provider", "0.95,0.35,0.1")):
         ET.SubElement(root, "vType", id=name, vClass="passenger", color=color,
+                      guiShape="delivery" if name == "provider" else "passenger",
                       accel="2.6", decel="4.5", sigma="0.5", length="5", minGap="2.5",
                       maxSpeed=str(config.vehicle_max_speed_mps), speedDev="0")
     horizon = warmup_s + config.steps * config.time_step_s

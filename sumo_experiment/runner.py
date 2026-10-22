@@ -72,6 +72,9 @@ def run_episode(
                 mobility.extend(environment.mobility_rows())
                 if gui and environment.step_index == config.steps // 2:
                     environment.connection.gui.screenshot("View #0", str(directory / "sumo-view.png"))
+                if gui and environment.step_index in (0, config.steps - 1):
+                    name = "sumo-start.png" if environment.step_index == 0 else "sumo-end.png"
+                    environment.connection.gui.screenshot("View #0", str(directory / name))
                 for decision in decisions:
                     row = asdict(decision.task)
                     row.update(destination=decision.candidate.destination_type,

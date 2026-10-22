@@ -5,6 +5,7 @@ from __future__ import annotations
 from math import ceil, pi
 from pathlib import Path
 from random import Random
+import time
 from typing import Sequence
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from phase1.environment import SimulationEnvironment
 from phase1.models import Position
 from .network import RoadTarget, create_routes, create_sumo_config, project_target
 from .runtime import SumoRuntime
+from .gui import write_view_settings
 
 
 class SumoEnvironment(SimulationEnvironment):
@@ -50,6 +52,7 @@ class SumoEnvironment(SimulationEnvironment):
         self.junction_deferrals = 0
         self.reinsertion_deferrals = 0
         self.connection = None
+        self.gui_delay_s = gui_delay_ms / 1000.0 if gui else 0.0
         self.label = "sumo-" + uuid4().hex
         directory.mkdir(parents=True, exist_ok=True)
         route_path = directory / "traffic.rou.xml"
@@ -67,10 +70,19 @@ class SumoEnvironment(SimulationEnvironment):
                         "--tripinfo-output", str(directory / "trips.xml"),
                         "--tripinfo-output.write-unfinished", "true"]
         if gui:
-            command += ["--start", "--quit-on-end", "--delay", str(gui_delay_ms)]
+            view_path = directory / "view.xml"
+            write_view_settings(view_path)
+            command += ["--start", "--quit-on-end", "--delay", str(gui_delay_ms),
+                        "--window-size", "1280,900", "--window-pos", "50,50",
+                        "--gui-settings-file", str(view_path)]
         try:
-            runtime.traci.start(command, label=self.label, doSwitch=False, stdout=None, numRetries=3)
+            runtime.traci.start(command, label=self.label, doSwitch=False, stdout=None,
+                                numRetries=30 if gui else 3)
             self.connection = runtime.traci.getConnection(self.label)
+            if gui:
+                self.connection.gui.setSchema("View #0", "Course traffic")
+                xmin, ymin, xmax, ymax = network.getBoundary()
+                self.connection.gui.setBoundary("View #0", xmin - 30, ymin - 30, xmax + 30, ymax + 30)
             for _ in range(max(1, ceil(warmup_s / config.time_step_s))):
                 self._traffic_step()
             self._sync_positions()
@@ -209,10 +221,14 @@ class SumoEnvironment(SimulationEnvironment):
     def _traffic_step(self) -> None:
         """Advance exactly one SUMO step and reject collisions or teleportation."""
 
+        started = time.monotonic()
         self.connection.simulationStep()
         simulation = self.connection.simulation
         if simulation.getStartingTeleportNumber() or simulation.getCollidingVehiclesNumber():
             raise RuntimeError("SUMO reported a collision or teleport; inspect the episode's sumo.log.")
+        remaining = self.gui_delay_s - (time.monotonic() - started)
+        if remaining > 0:
+            time.sleep(remaining)
 
     def _sync_positions(self) -> None:
         """Copy SUMO lane positions, actual speed, and heading into Python nodes."""
