@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
-def write_view_settings(path: Path) -> None:
+def write_view_settings(path: Path, city: bool = False) -> None:
     """Use a readable road view with enlarged car symbols, without changing physics."""
 
     from .network import write_xml
@@ -19,13 +19,13 @@ def write_view_settings(path: Path) -> None:
     scheme = ET.SubElement(root, "scheme", name="Course traffic")
     ET.SubElement(scheme, "background", backgroundColor="235,239,242", showGrid="0")
     ET.SubElement(scheme, "edges", laneEdgeMode="0", laneShowBorders="1",
-                  showLinkDecals="1", widthExaggeration="3", minSize="0")
+                  showLinkDecals="1", widthExaggeration="1" if city else "3", minSize="0")
     ET.SubElement(scheme, "vehicles", vehicleMode="0", vehicleQuality="2",
-                  vehicle_minSize="3", vehicle_exaggeration="6",
+                  vehicle_minSize="3", vehicle_exaggeration="4" if city else "6",
                   showBlinker="1", drawMinGap="0")
     ET.SubElement(scheme, "junctions", junctionMode="0", drawShape="1", showLane2Lane="1")
-    ET.SubElement(scheme, "pois", poi_minSize="0", poi_exaggeration="8",
-                  poiName_show="1", poiName_size="20", poiName_color="20,60,30")
+    ET.SubElement(scheme, "pois", poi_minSize="0", poi_exaggeration="1.5" if city else "8",
+                  poiName_show="0" if city else "1", poiName_size="20", poiName_color="20,60,30")
     write_xml(root, path)
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import shutil
 from dataclasses import asdict, replace
 from pathlib import Path
 from random import Random
@@ -105,6 +106,7 @@ def run_experiment(
     scenarios: Sequence[ScenarioConfig], config: SimulationConfig, phase2: Phase2Config,
     runtime: SumoRuntime, output: Path, warmup_s: float = 30.0,
     gui: bool = False, gui_delay_ms: int = 0,
+    map_name: str = "grid",
 ) -> list[SimulationSummary]:
     """Train per scenario, then evaluate both methods on an unused matched seed.
 
@@ -116,8 +118,23 @@ def run_experiment(
     if output.exists() and any(output.iterdir()):
         raise FileExistsError(f"Output folder is not empty; choose a fresh --output: {output}")
     output.mkdir(parents=True, exist_ok=True)
-    network_path = (output / "network" / "grid.net.xml").resolve()
-    network = create_network(runtime, config, network_path)
+    if map_name == "erlangen":
+        from .city import CITY_DIRECTORY
+
+        if not (CITY_DIRECTORY / "city.net.xml.gz").exists():
+            raise RuntimeError("Prepare the city first: python3 -m sumo_experiment.city")
+        shutil.copytree(CITY_DIRECTORY, output / "network")
+        network_path = (output / "network" / "city.net.xml.gz").resolve()
+        network = runtime.sumolib.net.readNet(str(network_path))
+        xmin, ymin, xmax, ymax = network.getBoundary()
+        if abs(xmin) > 1 or abs(ymin) > 1:
+            raise RuntimeError("City network must use a normalized local coordinate origin.")
+        config = replace(config, area_width_m=xmax, area_height_m=ymax)
+    elif map_name == "grid":
+        network_path = (output / "network" / "grid.net.xml").resolve()
+        network = create_network(runtime, config, network_path)
+    else:
+        raise ValueError(f"Unknown map: {map_name}")
     summaries, convergence, scenario_info = [], [], []
     for scenario in scenarios:
         print(f"{scenario.name}: training {phase2.training_episodes} SUMO episodes", flush=True)
@@ -168,7 +185,7 @@ def run_experiment(
     write_phase2_plots(summaries, convergence, output / "plots")
     manifest = {"sumo_version": runtime.version(), "simulation": asdict(config),
                 "phase2": asdict(phase2), "warmup_s": warmup_s,
-                "network": "5x5 bidirectional urban grid; 50 km/h; traffic lights",
+                "network": map_name,
                 "scenarios": scenario_info,
                 "limitations": ["Wireless loss, retransmission delay, and compute queues are analytical Python estimates.",
                                 "The existing controller is PPO-style, not full neural PPO or learned CTDE.",

@@ -31,6 +31,8 @@ def main() -> None:
     parser.add_argument("--steps", type=positive_int, default=120)
     parser.add_argument("--episodes", type=positive_int, default=24)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--map", choices=("grid", "erlangen"), default="grid",
+                        help="Use the original grid or the prepared real city district.")
     parser.add_argument("--sumo-home", type=Path, help="SUMO folder containing bin/ and tools/.")
     parser.add_argument("--output", type=Path, default=None, help="A fresh experiment folder.")
     parser.add_argument("--gui", action="store_true", help="Show evaluation episodes in SUMO GUI.")
@@ -54,6 +56,7 @@ def main() -> None:
             replace(SimulationConfig(), steps=args.steps, seed=args.seed),
             replace(Phase2Config(), training_episodes=args.episodes, evaluation_steps=args.steps),
             runtime, output.resolve(), args.warmup_seconds, args.gui, args.gui_delay_ms,
+            map_name=args.map,
         )
     except (RuntimeError, FileExistsError) as error:
         parser.exit(1, str(error) + "\n")

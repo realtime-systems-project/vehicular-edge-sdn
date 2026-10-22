@@ -57,7 +57,8 @@ class SumoEnvironment(SimulationEnvironment):
         directory.mkdir(parents=True, exist_ok=True)
         route_path = directory / "traffic.rou.xml"
         config_path = directory / "simulation.sumocfg"
-        create_routes(network, scenario, config, warmup_s, route_path)
+        create_routes(network, scenario, config, warmup_s, route_path,
+                      respect_speed_limits=network_path.name == "city.net.xml.gz")
         create_sumo_config(network_path, route_path, config.time_step_s, config.seed, config_path)
         binary = runtime.gui if gui else runtime.sumo
         if not binary:
@@ -71,7 +72,7 @@ class SumoEnvironment(SimulationEnvironment):
                         "--tripinfo-output.write-unfinished", "true"]
         if gui:
             view_path = directory / "view.xml"
-            write_view_settings(view_path)
+            write_view_settings(view_path, city=network_path.name == "city.net.xml.gz")
             command += ["--start", "--quit-on-end", "--delay", str(gui_delay_ms),
                         "--window-size", "1280,900", "--window-pos", "50,50",
                         "--gui-settings-file", str(view_path)]
@@ -199,6 +200,7 @@ class SumoEnvironment(SimulationEnvironment):
                 vehicles.setStop(vehicle_id, stop_edge, pos=stop.endPos, duration=0)
         vehicles.changeTarget(vehicle_id, target.edge_id)
         vehicles.setStop(vehicle_id, target.edge_id, pos=target.lane_position,
+                         laneIndex=target.lane_index,
                          duration=self.config.steps * self.config.time_step_s + 3600,
                          flags=1)
         self.targets[provider_id] = target

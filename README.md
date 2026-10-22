@@ -53,3 +53,23 @@ python3 run_sumo.py --scenario 1 --episodes 2 --steps 60
 
 Add `--gui` to watch evaluation. Results, traffic files, and diagnostics go to a
 fresh folder under `sandbox/sumo/`; original benchmark outputs stay unchanged.
+
+### Real City Map
+
+The bundled central Erlangen district uses real OpenStreetMap roads, buildings,
+and green spaces, at their original scale (about 1.3 km per side):
+
+```bash
+python3 run_sumo.py --map erlangen --scenario 1 --episodes 1 --steps 300 --gui --gui-delay-ms 200
+```
+
+The default `--map grid` preserves the earlier experiment. City roads retain
+their imported speed limits and one-way restrictions; traffic demand is seeded
+synthetic traffic, not measured Erlangen traffic. Signals use generated,
+uncalibrated timings. Wireless/compute behavior remains the Python model.
+
+Map data: [OpenStreetMap contributors, ODbL](https://www.openstreetmap.org/copyright).
+Source, date, checksum, and import commands are in
+`sumo_experiment/maps/erlangen/provenance.json`. Rebuild or refresh explicitly
+with `python3 -m sumo_experiment.city` (delete the cached source under
+`sandbox/sumo/map-source/erlangen/` first to download newer data).

@@ -21,6 +21,7 @@ class RoadTarget:
     lane_position: float
     x: float
     y: float
+    lane_index: int = 0
 
 
 def write_xml(root: ET.Element, path: Path) -> None:
@@ -59,7 +60,10 @@ def project_target(network: Any, geometry: Any, x: float, y: float, excluded: st
     for edge in network.getEdges():
         if edge.getID() == excluded or not edge.allows("passenger"):
             continue
-        lane = edge.getLane(0)
+        lane = next((lane for lane in edge.getLanes() if lane.allows("passenger")
+                     and lane.getLength() >= 45), None)
+        if lane is None:
+            continue
         length = lane.getLength()
         offset, _distance = geometry.polygonOffsetAndDistanceToPoint((x, y), lane.getShape())
         offset = max(20.0, min(length - 20.0, offset))
@@ -69,12 +73,15 @@ def project_target(network: Any, geometry: Any, x: float, y: float, excluded: st
     if not candidates:
         raise RuntimeError("The road network has no suitable passenger lanes.")
     _distance, edge_id, offset, point = min(candidates)
-    return RoadTarget(edge_id, offset, point[0], point[1])
+    lane_index = next(lane.getIndex() for lane in network.getEdge(edge_id).getLanes()
+                      if lane.allows("passenger") and lane.getLength() >= 45)
+    return RoadTarget(edge_id, offset, point[0], point[1], lane_index)
 
 
 def create_routes(
     network: Any, scenario: ScenarioConfig, config: SimulationConfig,
     warmup_s: float, path: Path,
+    respect_speed_limits: bool = False,
 ) -> None:
     """Create identical seeded initial traffic and parked providers for each method.
 
@@ -84,8 +91,11 @@ def create_routes(
     """
 
     rng = Random(config.seed + 101)
-    edges = sorted((edge for edge in network.getEdges() if edge.allows("passenger")),
+    edges = sorted((edge for edge in network.getEdges() if edge.allows("passenger")
+                    and edge.getLane(0).allows("passenger") and edge.getLength() >= 45),
                    key=lambda edge: edge.getID())
+    if len(edges) < scenario.vehicle_count + scenario.provider_count:
+        raise RuntimeError("Not enough distinct passenger roads of at least 45 m for this population.")
     starts = rng.sample(edges, scenario.vehicle_count + scenario.provider_count)
     root = ET.Element("routes")
     for name, color in (("car", "0,0.65,0.85"), ("provider", "0.95,0.35,0.1")):
@@ -100,7 +110,11 @@ def create_routes(
         vehicle_id = f"provider:{node_id}" if provider else f"vehicle:{node_id}"
         route = [start]
         distance = start.getLength()
+        attempts = 0
         while not provider and distance < 2 * config.vehicle_max_speed_mps * horizon:
+            attempts += 1
+            if attempts > 10000:
+                raise RuntimeError("Cannot build a sufficiently long route; check road connectivity.")
             destination = rng.choice(edges)
             extension, _cost = network.getShortestPath(route[-1], destination, vClass="passenger")
             if extension and len(extension) > 1:
@@ -108,6 +122,8 @@ def create_routes(
                 distance += sum(edge.getLength() for edge in extension[1:])
         stop_position = start.getLength() / 2
         speed_factor = rng.uniform(config.vehicle_min_speed_mps, config.vehicle_max_speed_mps) / 13.89
+        if respect_speed_limits:
+            speed_factor = min(1.0, speed_factor)
         vehicle = ET.SubElement(root, "vehicle", id=vehicle_id,
                                 type="provider" if provider else "car", depart="0",
                                 departPos=str(stop_position - 10 if provider else 10),
@@ -128,6 +144,10 @@ def create_sumo_config(network_path: Path, route_path: Path, step_s: float, seed
     inputs = ET.SubElement(root, "input")
     ET.SubElement(inputs, "net-file", value=Path(os.path.relpath(network_path.resolve(), path.parent.resolve())).as_posix())
     ET.SubElement(inputs, "route-files", value=route_path.name)
+    polygons = network_path.parent / "city.poly.xml.gz"
+    if polygons.exists():
+        ET.SubElement(inputs, "additional-files", value=Path(os.path.relpath(
+            polygons.resolve(), path.parent.resolve())).as_posix())
     time = ET.SubElement(root, "time")
     ET.SubElement(time, "step-length", value=str(step_s))
     random = ET.SubElement(root, "random_number")

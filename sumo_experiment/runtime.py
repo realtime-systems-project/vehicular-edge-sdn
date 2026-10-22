@@ -46,6 +46,12 @@ def load_runtime(sumo_home: Path | None = None) -> SumoRuntime:
     if home:
         home = home.expanduser().resolve()
         os.environ["SUMO_HOME"] = str(home)
+        if sys.platform == "darwin" and not os.getenv("PROJ_DATA") and not os.getenv("PROJ_LIB"):
+            # The native bundle's nested framework can hide PROJ's map database.
+            databases = list(home.parents[1].glob(
+                "framework/EclipseSUMO.framework/Versions/*/EclipseSUMO/share/proj/proj.db"))
+            if databases:
+                os.environ["PROJ_DATA"] = str(databases[0].parent)
         if (home / "tools" / "traci").is_dir():
             sys.path.insert(0, str(home / "tools"))
     try:
