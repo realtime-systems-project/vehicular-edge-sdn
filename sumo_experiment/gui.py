@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import atexit
 import os
+import shlex
+import socket
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -59,6 +64,81 @@ def working_display(probe: Path) -> str | None:
     return None
 
 
+def local_server_authority() -> tuple[str, Path] | None:
+    """Locate only this user's running local XQuartz server and private token file."""
+
+    result = subprocess.run(["/bin/ps", "-u", str(os.getuid()), "-o", "command="],
+                            capture_output=True, text=True, timeout=3)
+    for line in result.stdout.splitlines():
+        args = shlex.split(line)
+        if not args or args[0] != "/opt/X11/bin/Xquartz" or "-auth" not in args:
+            continue
+        display = next((arg for arg in args if arg.startswith(":") and arg[1:].isdigit()), None)
+        index = args.index("-auth") + 1
+        if display is None or index >= len(args):
+            continue
+        path = Path(args[index])
+        info = path.stat()
+        if info.st_uid == os.getuid() and stat.S_ISREG(info.st_mode) and not info.st_mode & 0o077:
+            return display, path
+    return None
+
+
+def recover_local_authority(probe: Path) -> bool:
+    """Recover hostname-mismatched X11 credentials for this process only.
+
+    Reuse the active same-user server's token in a private temporary authority
+    file, under today's hostname. Never log tokens, pass them in command-line
+    arguments, edit ~/.Xauthority, or relax XQuartz authentication. Retain the
+    file for child SUMO processes and delete it when this Python process exits.
+    """
+
+    previous = {key: os.environ.get(key) for key in ("DISPLAY", "XAUTHORITY")}
+    temporary = None
+    success = False
+    try:
+        server = local_server_authority()
+        if server is None:
+            return False
+        display, authority = server
+        xauth = "/opt/X11/bin/xauth"
+        result = subprocess.run([xauth, "-n", "-f", str(authority), "list"],
+                                capture_output=True, text=True, timeout=3, check=True)
+        records = [line.split() for line in result.stdout.splitlines()]
+        record = next((row for row in records if len(row) == 3
+                       and row[0].endswith("/unix" + display)
+                       and row[1] == "MIT-MAGIC-COOKIE-1"
+                       and len(row[2]) == 32 and all(c in "0123456789abcdefABCDEF" for c in row[2])), None)
+        if record is None:
+            return False
+        temporary = tempfile.TemporaryDirectory(prefix="sumo-xauthority-")
+        target = Path(temporary.name) / "authority"
+        target.touch(mode=0o600)
+        subprocess.run([xauth, "-f", str(target)],
+                       input=f"add {socket.gethostname()}/unix{display} {record[1]} {record[2]}\n",
+                       capture_output=True, text=True, timeout=3, check=True)
+        environment = dict(os.environ, DISPLAY=display, XAUTHORITY=str(target))
+        result = subprocess.run([str(probe), "-display", display], env=environment,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
+        if result.returncode:
+            return False
+        os.environ.update(DISPLAY=display, XAUTHORITY=str(target))
+        atexit.register(temporary.cleanup)
+        success = True
+        return True
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+    finally:
+        if not success:
+            if temporary is not None:
+                temporary.cleanup()
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+
 def prepare_gui() -> None:
     """Start/check XQuartz on macOS and fail before training if it cannot run."""
 
@@ -68,6 +148,8 @@ def prepare_gui() -> None:
     if not probe.is_file():
         raise RuntimeError("SUMO GUI on macOS requires XQuartz. Install it and open XQuartz first.")
     if working_display(probe):
+        return
+    if recover_local_authority(probe):
         return
     if not Path("/tmp/.X11-unix").is_dir():
         raise RuntimeError(
@@ -86,6 +168,8 @@ def prepare_gui() -> None:
     deadline = time.monotonic() + 8
     while time.monotonic() < deadline:
         if working_display(probe):
+            return
+        if recover_local_authority(probe):
             return
         time.sleep(0.5)
     raise RuntimeError(

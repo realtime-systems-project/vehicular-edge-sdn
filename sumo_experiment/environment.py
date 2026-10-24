@@ -77,8 +77,9 @@ class SumoEnvironment(SimulationEnvironment):
                         "--window-size", "1280,900", "--window-pos", "50,50",
                         "--gui-settings-file", str(view_path)]
         try:
+            # Cold macOS framework validation can exceed 30 seconds before GUI startup.
             runtime.traci.start(command, label=self.label, doSwitch=False, stdout=None,
-                                numRetries=30 if gui else 3)
+                                numRetries=120 if gui else 3)
             self.connection = runtime.traci.getConnection(self.label)
             if gui:
                 self.connection.gui.setSchema("View #0", "Course traffic")
