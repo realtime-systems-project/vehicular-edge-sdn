@@ -12,6 +12,8 @@ from phase1.config import SCENARIOS, Phase2Config, SimulationConfig
 from sumo_experiment.runner import run_experiment
 from sumo_experiment.runtime import load_runtime
 from sumo_experiment.gui import prepare_gui
+from sumo_experiment.city import CITY_MAPS
+from sumo_experiment.scenarios import COMPACT_DEMO
 
 
 def positive_int(value: str) -> int:
@@ -27,11 +29,12 @@ def main() -> None:
     """Resolve SUMO, run training and evaluation, and print the output location."""
 
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument("--scenario", choices=("1", "2", "all"), default="all")
+    parser.add_argument("--scenario", choices=("1", "2", "all", "demo"), default="all",
+                        help="demo uses 40 cars, 12 providers, and 8 edge servers.")
     parser.add_argument("--steps", type=positive_int, default=120)
     parser.add_argument("--episodes", type=positive_int, default=24)
     parser.add_argument("--seed", type=int, default=7)
-    parser.add_argument("--map", choices=("grid", "erlangen"), default="grid",
+    parser.add_argument("--map", choices=("grid", *CITY_MAPS), default="grid",
                         help="Use the original grid or the prepared real city district.")
     parser.add_argument("--sumo-home", type=Path, help="SUMO folder containing bin/ and tools/.")
     parser.add_argument("--output", type=Path, default=None, help="A fresh experiment folder.")
@@ -42,7 +45,11 @@ def main() -> None:
     if args.warmup_seconds < 0 or args.gui_delay_ms < 0:
         parser.error("Warmup and GUI delay cannot be negative.")
     output = args.output or Path("sandbox/sumo") / datetime.now().strftime("run-%Y%m%d-%H%M%S-%f")
-    scenario_ids = (1, 2) if args.scenario == "all" else (int(args.scenario),)
+    if args.scenario == "demo":
+        scenarios = [COMPACT_DEMO]
+    else:
+        scenario_ids = (1, 2) if args.scenario == "all" else (int(args.scenario),)
+        scenarios = [SCENARIOS[index] for index in scenario_ids]
     try:
         if args.gui:
             prepare_gui()
@@ -52,7 +59,7 @@ def main() -> None:
                 raise RuntimeError("sumo-gui is unavailable in this SUMO installation.")
         print(runtime.version(), flush=True)
         summaries = run_experiment(
-            [SCENARIOS[index] for index in scenario_ids],
+            scenarios,
             replace(SimulationConfig(), steps=args.steps, seed=args.seed),
             replace(Phase2Config(), training_episodes=args.episodes, evaluation_steps=args.steps),
             runtime, output.resolve(), args.warmup_seconds, args.gui, args.gui_delay_ms,

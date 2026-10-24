@@ -8,16 +8,50 @@ import xml.etree.ElementTree as ET
 from dataclasses import replace
 from pathlib import Path
 
-from phase1.config import SCENARIOS, SimulationConfig
+from phase1.config import SCENARIOS, SimulationConfig, Phase2Config
 from phase1.models import Position
-from sumo_experiment.city import CITY_DIRECTORY, connected_edges
+from sumo_experiment.city import CITY_DIRECTORY, connected_edges, city_directory
 from sumo_experiment.environment import SumoEnvironment
 from sumo_experiment.network import project_target
 from sumo_experiment.runtime import load_runtime
+from sumo_experiment.runner import run_experiment
+from sumo_experiment.scenarios import COMPACT_DEMO
 
 
 class CityTests(unittest.TestCase):
     """Exercise actual imported roads, not a mock network."""
+
+    def test_compact_town_and_extra_infrastructure(self) -> None:
+        """The demo uses a smaller connected map and preserves course population counts."""
+
+        runtime = load_runtime()
+        path = city_directory("dinkelsbuhl") / "city.net.xml.gz"
+        network = runtime.sumolib.net.readNet(str(path))
+        self.assertEqual(len(connected_edges(network)), len(network.getEdges()))
+        xmin, ymin, width, height = network.getBoundary()
+        self.assertEqual((xmin, ymin), (0, 0))
+        self.assertTrue(400 < width < 800 and 400 < height < 800)
+        self.assertEqual((COMPACT_DEMO.vehicle_count, COMPACT_DEMO.provider_count,
+                          COMPACT_DEMO.edge_count), (40, 12, 8))
+        self.assertEqual((SCENARIOS[2].provider_count, SCENARIOS[2].edge_count), (6, 4))
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "comparison"
+            run_experiment([COMPACT_DEMO], replace(SimulationConfig(), steps=40),
+                           replace(Phase2Config(), training_episodes=1), runtime, output,
+                           map_name="dinkelsbuhl")
+            manifest = json.loads((output / "manifest.json").read_text())
+            self.assertEqual(manifest["network"], "dinkelsbuhl")
+            self.assertAlmostEqual(manifest["simulation"]["area_width_m"], width)
+            self.assertTrue((output / "network" / "provenance.json").exists())
+            for method in ("baseline", "controlled"):
+                episode = output / "compact_demo" / method
+                vehicles = ET.parse(episode / "traffic.rou.xml").findall("vehicle")
+                self.assertEqual(sum(v.get("type") == "provider" for v in vehicles), 12)
+                self.assertEqual(len(vehicles), 52)
+                diagnostics = manifest["scenarios"][0]["evaluation_diagnostics"][method]
+                self.assertEqual(diagnostics["active_vehicles"], 52)
+                self.assertEqual(diagnostics["collisions"], 0)
+                self.assertEqual(diagnostics["teleports"], 0)
 
     def test_connected_map_and_driving(self) -> None:
         """Every road is reachable; traffic moves without missing nodes or teleports."""

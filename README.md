@@ -56,6 +56,19 @@ fresh folder under `sandbox/sumo/`; original benchmark outputs stay unchanged.
 
 ### Real City Map
 
+For the clearest compact view, use Dinkelsbuehl's old town (about 670 x 710 m)
+with the display-only demo: **40 cars, 12 providers, and 8 edge servers**.
+
+```bash
+python3 run_sumo.py --map dinkelsbuhl --scenario demo --episodes 2 --steps 300 --gui --gui-delay-ms 200
+```
+
+Cyan vehicles are cars, orange delivery vehicles are providers, green markers
+are edge servers, and yellow markers are SDN target locations. The demo doubles
+scenario 2's infrastructure on a map with about 71% less area; its density is
+chosen for visibility, not as evidence of improved offloading performance.
+The required scenarios `1` and `2`, their counts, and saved outputs are unchanged.
+
 The bundled central Erlangen district uses real OpenStreetMap roads, buildings,
 and green spaces, at their original scale (about 1.3 km per side):
 
@@ -70,6 +83,7 @@ uncalibrated timings. Wireless/compute behavior remains the Python model.
 
 Map data: [OpenStreetMap contributors, ODbL](https://www.openstreetmap.org/copyright).
 Source, date, checksum, and import commands are in
-`sumo_experiment/maps/erlangen/provenance.json`. Rebuild or refresh explicitly
-with `python3 -m sumo_experiment.city` (delete the cached source under
-`sandbox/sumo/map-source/erlangen/` first to download newer data).
+each map's `sumo_experiment/maps/<name>/provenance.json`. Rebuild or refresh
+explicitly with `python3 -m sumo_experiment.city --map dinkelsbuhl` (or
+`--map erlangen`); delete the cached source under `sandbox/sumo/map-source/<name>/`
+first to download newer data.

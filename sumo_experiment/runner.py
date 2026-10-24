@@ -21,6 +21,7 @@ from phase2.sdn_controller import SDNPlacementController
 from .environment import SumoEnvironment
 from .network import create_network
 from .runtime import SumoRuntime
+from .city import CITY_MAPS, city_directory
 
 
 def write_rows(path: Path, rows: Sequence[dict]) -> None:
@@ -118,12 +119,11 @@ def run_experiment(
     if output.exists() and any(output.iterdir()):
         raise FileExistsError(f"Output folder is not empty; choose a fresh --output: {output}")
     output.mkdir(parents=True, exist_ok=True)
-    if map_name == "erlangen":
-        from .city import CITY_DIRECTORY
-
-        if not (CITY_DIRECTORY / "city.net.xml.gz").exists():
-            raise RuntimeError("Prepare the city first: python3 -m sumo_experiment.city")
-        shutil.copytree(CITY_DIRECTORY, output / "network")
+    if map_name in CITY_MAPS:
+        source = city_directory(map_name)
+        if not (source / "city.net.xml.gz").exists():
+            raise RuntimeError(f"Prepare the city first: python3 -m sumo_experiment.city --map {map_name}")
+        shutil.copytree(source, output / "network")
         network_path = (output / "network" / "city.net.xml.gz").resolve()
         network = runtime.sumolib.net.readNet(str(network_path))
         xmin, ymin, xmax, ymax = network.getBoundary()

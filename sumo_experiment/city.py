@@ -9,7 +9,9 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+import ssl
 import subprocess
+import sys
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -21,6 +23,18 @@ from .runtime import load_runtime
 CITY_DIRECTORY = Path(__file__).resolve().parent / "maps" / "erlangen"
 BBOX = "11.000,49.591,11.014,49.601"
 SOURCE = "https://www.openstreetmap.org/api/0.6/map?bbox=" + BBOX
+CITY_MAPS = {
+    "erlangen": ("Central Erlangen, Germany", BBOX),
+    "dinkelsbuhl": ("Dinkelsbuehl old town, Germany", "10.314,49.066,10.322,49.072"),
+}
+
+
+def city_directory(name: str) -> Path:
+    """Resolve a named bundled map, rejecting unknown names before filesystem use."""
+
+    if name not in CITY_MAPS:
+        raise ValueError(f"Unknown city map: {name}")
+    return CITY_DIRECTORY.parent / name
 
 
 def connected_edges(network: object) -> list:
@@ -42,24 +56,30 @@ def connected_edges(network: object) -> list:
     return sorted(largest, key=lambda edge: edge.getID())
 
 
-def prepare_city() -> None:
+def prepare_city(name: str = "erlangen") -> None:
     """Download, import, prune disconnected streets, and preserve map provenance."""
 
     runtime = load_runtime()
     home = Path(runtime.sumolib.__file__).resolve().parents[2]
-    output = CITY_DIRECTORY
+    output = city_directory(name)
+    title, bbox = CITY_MAPS[name]
+    source_url = "https://www.openstreetmap.org/api/0.6/map?bbox=" + bbox
     output.mkdir(parents=True, exist_ok=True)
-    cache = Path("sandbox/sumo/map-source/erlangen")
+    cache = Path("sandbox/sumo/map-source") / name
     cache.mkdir(parents=True, exist_ok=True)
     source = cache / "source.osm.xml"
     if not source.exists():
-        request = urllib.request.Request(SOURCE, headers={"User-Agent": "RealtimeCourseSUMO/1.0"})
-        with urllib.request.urlopen(request, timeout=120) as response:
+        request = urllib.request.Request(source_url, headers={"User-Agent": "RealtimeCourseSUMO/1.0"})
+        # Python.org macOS installs may lack their own CA bundle; retain TLS verification.
+        system_ca = Path("/etc/ssl/cert.pem")
+        context = ssl.create_default_context(cafile=str(system_ca)
+                                            if sys.platform == "darwin" and system_ca.is_file() else None)
+        with urllib.request.urlopen(request, timeout=120, context=context) as response:
             source.write_bytes(response.read())
     binary = Path(runtime.netgenerate).with_name("netconvert")
     raw = cache / "raw.net.xml"
     commands = [[str(binary), "--osm-files", str(source),
-                 "--keep-edges.by-vclass", "passenger", "--keep-edges.in-geo-boundary", BBOX,
+                 "--keep-edges.by-vclass", "passenger", "--keep-edges.in-geo-boundary", bbox,
                  "--geometry.remove", "--ramps.guess", "--junctions.join",
                  "--tls.guess-signals", "--tls.discard-simple", "--tls.default-type", "actuated",
                  "--remove-edges.isolated", "--output.street-names", "true",
@@ -90,8 +110,8 @@ def prepare_city() -> None:
         shapes.getroot().remove(poi)
     with gzip.open(polygons, "wb") as handle:
         shapes.write(handle, encoding="utf-8", xml_declaration=True)
-    metadata = {"city": "Central Erlangen, Germany", "source_url": SOURCE,
-                "bbox_wgs84": BBOX,
+    metadata = {"city": title, "source_url": source_url,
+                "bbox_wgs84": bbox,
                 "retrieved_utc": datetime.fromtimestamp(source.stat().st_mtime, timezone.utc).isoformat(),
                 "prepared_utc": datetime.now(timezone.utc).isoformat(),
                 "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
@@ -106,4 +126,8 @@ def prepare_city() -> None:
 
 
 if __name__ == "__main__":
-    prepare_city()
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument("--map", choices=tuple(CITY_MAPS), default="erlangen")
+    prepare_city(parser.parse_args().map)
