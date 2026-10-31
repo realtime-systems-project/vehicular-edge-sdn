@@ -1,1 +1,1 @@
-"""Experimental SUMO mobility adapter; the original simulator stays unchanged."""
+"""SUMO mobility integration; the original simulator remains available."""

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the isolated SUMO experiment without changing the course benchmark."""
+"""Run SUMO-backed traffic and offloading without overwriting course benchmarks."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def main() -> None:
     parser.add_argument("--map", choices=("grid", *CITY_MAPS), default="grid",
                         help="Use the original grid or the prepared real city district.")
     parser.add_argument("--sumo-home", type=Path, help="SUMO folder containing bin/ and tools/.")
-    parser.add_argument("--output", type=Path, default=None, help="A fresh experiment folder.")
+    parser.add_argument("--output", type=Path, default=None, help="A fresh SUMO results folder.")
     parser.add_argument("--gui", action="store_true", help="Show evaluation episodes in SUMO GUI.")
     parser.add_argument("--gui-delay-ms", type=int, default=100)
     parser.add_argument("--warmup-seconds", type=float, default=30.0)

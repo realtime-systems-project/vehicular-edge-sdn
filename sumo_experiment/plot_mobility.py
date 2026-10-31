@@ -3,10 +3,29 @@
 from __future__ import annotations
 
 import csv
+import gzip
 import json
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+
+def read_roads(output: Path) -> list:
+    """Read visible lane shapes from either an XML grid or a compressed city map."""
+
+    network_path = output / "network" / "grid.net.xml"
+    if not network_path.exists():
+        network_path = output / "network" / "city.net.xml.gz"
+    opener = gzip.open if network_path.suffix == ".gz" else open
+    with opener(network_path, "rb") as handle:
+        network = ET.parse(handle)
+    roads = []
+    for edge in network.getroot().findall("edge"):
+        if edge.get("function") == "internal":
+            continue
+        lane = edge.find("lane")
+        roads.append([tuple(map(float, point.split(","))) for point in lane.get("shape").split()])
+    return roads
 
 
 def plot_mobility(output: Path) -> Path:
@@ -21,13 +40,7 @@ def plot_mobility(output: Path) -> Path:
     import matplotlib.pyplot as plt
 
     manifest = json.loads((output / "manifest.json").read_text())
-    network = ET.parse(output / "network" / "grid.net.xml")
-    roads = []
-    for edge in network.getroot().findall("edge"):
-        if edge.get("function") == "internal":
-            continue
-        lane = edge.find("lane")
-        roads.append([tuple(map(float, point.split(","))) for point in lane.get("shape").split()])
+    roads = read_roads(output)
     scenarios = manifest["scenarios"]
     figure, axes = plt.subplots(len(scenarios), 2, figsize=(12, 5.5 * len(scenarios)), squeeze=False)
     for row_index, details in enumerate(scenarios):

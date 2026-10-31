@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+.venv/
 .DS_Store
 outputs/*
 !outputs/phase2/
@@ -11,6 +12,9 @@ outputs/*
 /Phase-2/
 /.local-artifacts/
 /Phase-*.zip
+
+# Teammate guide PDFs are local only; existing course reports stay tracked.
+/output/pdf/
 
 # Explanatory guides and project requirements are kept locally only.
 /docs/*.md

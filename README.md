@@ -35,55 +35,26 @@ and, for Phase 2, SVG plots in the selected output directory.
 - [`phase1/`](phase1/), [`phase2/`](phase2/): simulation and controller code.
 - [`reports/`](reports/): Word report, PDFs, and LaTeX source.
 
-Guides, project requirements, sandbox experiments, and local submission bundles
-are excluded from Git.
+Private explanatory notes, project requirements, guide PDFs, sandbox results,
+and local submission bundles are excluded from Git. The SUMO usage guide below
+is shared with the SUMO integration code.
 The Phase 1 baseline is preserved by the `phase1-baseline` tag.
 
-## SUMO Experiment
+## SUMO Integration
 
-On the `codex/sumo-experiment` branch, SUMO supplies road traffic, signals, and
-physical provider movement. Python retains task offloading, Kalman estimation,
-and the existing PPO-style controller. Install SUMO and set `SUMO_HOME` to its
-folder, then run:
+SUMO handles road traffic and physical provider movement; Python retains tasks,
+offloading, queues, SDN, and Kalman estimation.
+See the **[SUMO setup and usage guide](sumo_experiment/README.md)** for installation,
+architecture, outputs, and troubleshooting.
 
-```bash
-python3 -m pip install -r requirements-sumo.txt
-python3 run_sumo.py --scenario 1 --episodes 2 --steps 60
-```
-
-Add `--gui` to watch evaluation. Results, traffic files, and diagnostics go to a
-fresh folder under `sandbox/sumo/`; original benchmark outputs stay unchanged.
-
-### Real City Map
-
-For the clearest compact view, use Dinkelsbuehl's old town (about 670 x 710 m)
-with the display-only demo: **40 cars, 12 providers, and 8 edge servers**.
+With SUMO installed, run the compact town demo: **40 cars, 12 providers, and
+8 edge servers** on a roughly 670 x 710 m OpenStreetMap network.
 
 ```bash
 python3 run_sumo.py --map dinkelsbuhl --scenario demo --episodes 2 --steps 300 --gui --gui-delay-ms 200
 ```
 
-Cyan vehicles are cars, orange delivery vehicles are providers, green markers
-are edge servers, and yellow markers are SDN target locations. The demo doubles
-scenario 2's infrastructure on a map with about 71% less area; its density is
-chosen for visibility, not as evidence of improved offloading performance.
-The required scenarios `1` and `2`, their counts, and saved outputs are unchanged.
-
-The bundled central Erlangen district uses real OpenStreetMap roads, buildings,
-and green spaces, at their original scale (about 1.3 km per side):
-
-```bash
-python3 run_sumo.py --map erlangen --scenario 1 --episodes 1 --steps 300 --gui --gui-delay-ms 200
-```
-
-The default `--map grid` preserves the earlier experiment. City roads retain
-their imported speed limits and one-way restrictions; traffic demand is seeded
-synthetic traffic, not measured Erlangen traffic. Signals use generated,
-uncalibrated timings. Wireless/compute behavior remains the Python model.
-
-Map data: [OpenStreetMap contributors, ODbL](https://www.openstreetmap.org/copyright).
-Source, date, checksum, and import commands are in
-each map's `sumo_experiment/maps/<name>/provenance.json`. Rebuild or refresh
-explicitly with `python3 -m sumo_experiment.city --map dinkelsbuhl` (or
-`--map erlangen`); delete the cached source under `sandbox/sumo/map-source/<name>/`
-first to download newer data.
+The first GUI is the **baseline**: providers stay parked and there are no yellow
+targets. The second is **controlled**: providers drive toward yellow destinations.
+Cyan = cars, orange = providers, green = edge servers. The original course
+scenarios and benchmark outputs are unchanged; the demo is not a performance claim.

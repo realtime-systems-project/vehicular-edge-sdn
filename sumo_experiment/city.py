@@ -1,4 +1,4 @@
-"""Prepare an attributed OpenStreetMap district for repeatable city experiments.
+"""Prepare an attributed OpenStreetMap district for repeatable SUMO simulations.
 
 Run with python -m sumo_experiment.city. Downloads are explicit preparation,
 never a side effect of running a simulation. Traffic demand remains synthetic.
